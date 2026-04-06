@@ -40,6 +40,8 @@ function Tooltip({ children, text }: { children: React.ReactNode; text: string }
 
 export function TopBar() {
   const connected = useSupervisorStore(s => s.connected)
+  const liveMode = useSupervisorStore(s => s.liveMode)
+  const toggleLiveMode = useSupervisorStore(s => s.toggleLiveMode)
   const events = useSupervisorStore(s => s.events)
   const agents = useSupervisorStore(s => s.agents)
   const activeSessionId = useSupervisorStore(s => s.activeSessionId)
@@ -84,6 +86,33 @@ export function TopBar() {
           width: 8, height: 8, borderRadius: '50%',
           background: connected ? '#4ade80' : '#ef4444',
         }} />
+        <button
+          onClick={toggleLiveMode}
+          title={liveMode ? 'Live mode ON — click to disable' : 'Live mode OFF — click to enable'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 8px',
+            background: liveMode ? '#1a2e1a' : '#1a1a1a',
+            border: `1px solid ${liveMode ? '#4ade80' : '#333'}`,
+            borderRadius: 4,
+            color: liveMode ? '#4ade80' : '#666',
+            fontSize: 11,
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            fontWeight: liveMode ? 'bold' : 'normal',
+          }}
+        >
+          <span style={{
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: liveMode ? '#4ade80' : '#666',
+            boxShadow: liveMode ? '0 0 6px #4ade80' : 'none',
+          }} />
+          Live
+        </button>
         {activeSessionId && (
           <span
             onClick={() => navigator.clipboard.writeText(activeSessionId)}

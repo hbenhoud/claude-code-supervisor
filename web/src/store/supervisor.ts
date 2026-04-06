@@ -21,6 +21,10 @@ interface SupervisorState {
   // Agents derived from events
   agents: Map<string, Agent>
 
+  // Live mode
+  liveMode: boolean
+  toggleLiveMode: () => void
+
   // Selection
   selectedEventId: string | null
   selectedAgentId: string | null
@@ -158,14 +162,21 @@ export const useSupervisorStore = create<SupervisorState>((set, get) => ({
       }
     }
 
-    set({ events: newEvents, agents })
+    set({
+      events: newEvents,
+      agents,
+      ...(state.liveMode ? { selectedEventId: evt.id } : {}),
+    })
   },
-  clearEvents: () => set({ events: [], agents: new Map() }),
+  clearEvents: () => set({ events: [], agents: new Map(), liveMode: true }),
 
   agents: new Map(),
 
+  liveMode: true,
+  toggleLiveMode: () => set(state => ({ liveMode: !state.liveMode })),
+
   selectedEventId: null,
   selectedAgentId: null,
-  selectEvent: (id) => set({ selectedEventId: id }),
+  selectEvent: (id) => set({ selectedEventId: id, liveMode: false }),
   selectAgent: (id) => set({ selectedAgentId: id }),
 }))
