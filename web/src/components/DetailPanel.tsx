@@ -13,7 +13,7 @@ export function DetailPanel() {
   if (!selectedEvent && selectedAgent) {
     const agentEvents = events.filter(e => e.agent_id === selectedAgent.id)
     return (
-      <div style={{ width: 280, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
+      <div style={{ width: 280, flexShrink: 0, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
         <h3 style={{ fontSize: 14, margin: '0 0 12px', color: '#e0e0e0' }}>{selectedAgent.name}</h3>
         <Field label="Type" value={selectedAgent.type} />
         <Field label="State" value={selectedAgent.state} />
@@ -48,7 +48,7 @@ export function DetailPanel() {
   }
 
   return (
-    <div style={{ width: 280, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
+    <div style={{ width: 280, flexShrink: 0, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
       <h3 style={{ fontSize: 14, margin: '0 0 12px', color: '#e0e0e0' }}>
         {selectedEvent.tool_name || selectedEvent.event_type}
       </h3>

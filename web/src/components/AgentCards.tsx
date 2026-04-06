@@ -22,6 +22,7 @@ export function AgentCards() {
   return (
     <div style={{
       width: 140,
+      flexShrink: 0,
       borderRight: '1px solid #222',
       padding: 8,
       display: 'flex',

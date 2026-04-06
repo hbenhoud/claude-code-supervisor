@@ -8,3 +8,11 @@ body {
   background: #0a0a0a;
   color: #e0e0e0;
 }
+
+/* Hide scrollbar on timeline while keeping scroll */
+.timeline-scroll {
+  scrollbar-width: none; /* Firefox */
+}
+.timeline-scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
