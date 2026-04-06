@@ -70,6 +70,24 @@ func (db *DB) GetSession(id string) (*Session, error) {
 	return &s, nil
 }
 
+func (db *DB) DeleteSession(id string) error {
+	tx, err := db.conn.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, table := range []string{"events", "session_scores", "anti_patterns", "skill_stats"} {
+		if _, err := tx.Exec("DELETE FROM "+table+" WHERE session_id = ?", id); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec("DELETE FROM sessions WHERE id = ?", id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (db *DB) IncrementToolCount(sessionID string) {
 	db.conn.Exec(`UPDATE sessions SET tool_count = tool_count + 1 WHERE id = ?`, sessionID)
 }

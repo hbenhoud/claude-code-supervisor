@@ -155,19 +155,206 @@ func TestNormalizeAgentToolCallCreatesAgentSpawn(t *testing.T) {
 	if evt.ToolName != "Agent" {
 		t.Errorf("expected tool_name=Agent, got %s", evt.ToolName)
 	}
+	if evt.AgentID != "root" {
+		t.Errorf("expected agent_id=root for Agent spawn, got %s", evt.AgentID)
+	}
+}
+
+// TestTemporalWindowSingleAgent verifies that tool calls during a single open agent window
+// are attributed to that agent.
+func TestTemporalWindowSingleAgent(t *testing.T) {
+	n := New()
+
+	// 1. Spawn agent
+	n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Agent",
+		ToolUseID:    "toolu_agent_aaa",
+		Input:        json.RawMessage(`{"description":"explore"}`),
+		Timestamp:    time.Now(),
+	})
+
+	// 2. Tool call during agent window → should be attributed to agent
+	evt := n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Read",
+		ToolUseID:    "toolu_read_001",
+		Timestamp:    time.Now(),
+	})
+
+	expectedAgentID := "agent-toolu_ag" // "agent-" + first 8 chars of "toolu_agent_aaa"
+	if evt.AgentID != expectedAgentID {
+		t.Errorf("expected agent_id=%s, got %s", expectedAgentID, evt.AgentID)
+	}
+	if evt.ParentAgentID != "root" {
+		t.Errorf("expected parent_agent_id=root, got %s", evt.ParentAgentID)
+	}
+
+	// 3. Complete agent
+	n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPostToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Agent",
+		ToolUseID:    "toolu_agent_aaa",
+		Timestamp:    time.Now(),
+	})
+
+	// 4. Tool call after agent window → should be root
+	evt2 := n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Read",
+		ToolUseID:    "toolu_read_002",
+		Timestamp:    time.Now(),
+	})
+
+	if evt2.AgentID != "root" {
+		t.Errorf("expected agent_id=root after window closed, got %s", evt2.AgentID)
+	}
+}
+
+// TestTemporalWindowParallelAgents verifies that tool calls during multiple open agent windows
+// are attributed to root (ambiguous).
+func TestTemporalWindowParallelAgents(t *testing.T) {
+	n := New()
+
+	// Spawn two agents in parallel
+	n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Agent",
+		ToolUseID:    "toolu_agent_aaa",
+		Input:        json.RawMessage(`{"description":"explore"}`),
+		Timestamp:    time.Now(),
+	})
+	n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Agent",
+		ToolUseID:    "toolu_agent_bbb",
+		Input:        json.RawMessage(`{"description":"plan"}`),
+		Timestamp:    time.Now(),
+	})
+
+	// Tool call with 2 agents open → should stay root
+	evt := n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Read",
+		ToolUseID:    "toolu_read_001",
+		Timestamp:    time.Now(),
+	})
+
+	if evt.AgentID != "root" {
+		t.Errorf("expected agent_id=root with parallel agents, got %s", evt.AgentID)
+	}
+
+	// Complete one agent → only one left → attributed to remaining
+	n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPostToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Agent",
+		ToolUseID:    "toolu_agent_aaa",
+		Timestamp:    time.Now(),
+	})
+
+	evt2 := n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Read",
+		ToolUseID:    "toolu_read_002",
+		Timestamp:    time.Now(),
+	})
+
+	expectedAgentID := "agent-toolu_ag" // "agent-" + first 8 chars of "toolu_agent_bbb"
+	if evt2.AgentID != expectedAgentID {
+		t.Errorf("expected agent_id=%s after one agent closed, got %s", expectedAgentID, evt2.AgentID)
+	}
+}
+
+// TestTemporalWindowNoAgent verifies that tool calls without any open agent are attributed to root.
+func TestTemporalWindowNoAgent(t *testing.T) {
+	n := New()
+
+	evt := n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Bash",
+		ToolUseID:    "toolu_bash_001",
+		Timestamp:    time.Now(),
+	})
+
+	if evt.AgentID != "root" {
+		t.Errorf("expected agent_id=root with no agents, got %s", evt.AgentID)
+	}
+	if evt.ParentAgentID != "" {
+		t.Errorf("expected empty parent_agent_id, got %s", evt.ParentAgentID)
+	}
+}
+
+// TestTemporalWindowPostToolUseAlsoAttributed verifies PostToolUse events also get the right agent.
+func TestTemporalWindowPostToolUseAlsoAttributed(t *testing.T) {
+	n := New()
+
+	// Spawn agent
+	n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Agent",
+		ToolUseID:    "toolu_agent_aaa",
+		Timestamp:    time.Now(),
+	})
+
+	// Pre tool call
+	n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Read",
+		ToolUseID:    "toolu_read_001",
+		Timestamp:    time.Now(),
+	})
+
+	// Post tool call → should also be attributed to agent
+	evt := n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPostToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Read",
+		ToolUseID:    "toolu_read_001",
+		Output:       json.RawMessage(`{"content":"hello"}`),
+		Timestamp:    time.Now(),
+	})
+
+	if evt.AgentID == "root" {
+		t.Error("expected PostToolUse to be attributed to sub-agent, got root")
+	}
+	if evt.ParentAgentID != "root" {
+		t.Errorf("expected parent_agent_id=root, got %s", evt.ParentAgentID)
+	}
 }
 
 func TestNormalizeSubAgentToolCall(t *testing.T) {
 	n := New()
 
+	// When parent_tool_use_id IS set (future-proofing), it should still work via resolve
+	// but since parent_tool_use_id isn't sent, this tests the temporal window path
+	n.Normalize(hooks.HookEvent{
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Agent",
+		ToolUseID:    "toolu_agent_123",
+		Input:        json.RawMessage(`{"description":"explore"}`),
+		Timestamp:    time.Now(),
+	})
+
 	evt := n.Normalize(hooks.HookEvent{
-		Hook:            hooks.HookPreToolUse,
-		SessionIDRaw:    "sess-1",
-		ToolNameRaw:     "Read",
-		ToolUseID:       "toolu_sub_read",
-		ParentToolUseID: "toolu_agent_123",
-		Input:           json.RawMessage(`{"file_path":"/tmp/test.go"}`),
-		Timestamp:       time.Now(),
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Read",
+		ToolUseID:    "toolu_sub_read",
+		Input:        json.RawMessage(`{"file_path":"/tmp/test.go"}`),
+		Timestamp:    time.Now(),
 	})
 
 	if evt.AgentID == "root" {

@@ -9,6 +9,7 @@ interface SupervisorState {
   // Sessions
   sessions: Session[]
   setSessions: (s: Session[]) => void
+  removeSession: (id: string) => void
   activeSessionId: string | null
   setActiveSession: (id: string | null) => void
 
@@ -76,6 +77,10 @@ export const useSupervisorStore = create<SupervisorState>((set, get) => ({
 
   sessions: [],
   setSessions: (s) => set({ sessions: s }),
+  removeSession: (id) => set(state => ({
+    sessions: state.sessions.filter(s => s.id !== id),
+    ...(state.activeSessionId === id ? { activeSessionId: null, events: [], agents: new Map() } : {}),
+  })),
   activeSessionId: null,
   setActiveSession: (id) => set({ activeSessionId: id, events: [], agents: new Map(), selectedEventId: null, selectedAgentId: null }),
 

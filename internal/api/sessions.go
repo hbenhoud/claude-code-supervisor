@@ -26,6 +26,15 @@ func (s *Server) handleGetSession(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(session)
 }
 
+func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := s.db.DeleteSession(id); err != nil {
+		http.Error(w, "delete failed", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) handleGetSessionEvents(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	events, err := s.db.GetEventsBySession(id, 0)

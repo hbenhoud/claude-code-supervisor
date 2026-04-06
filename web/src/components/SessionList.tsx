@@ -12,13 +12,24 @@ function sessionState(status: string): BotState {
   return 'done'
 }
 
+const API_URL = 'http://localhost:3001'
+
 export function SessionList({ onSelect }: SessionListProps) {
   const sessions = useSupervisorStore(s => s.sessions)
   const setActiveSession = useSupervisorStore(s => s.setActiveSession)
+  const removeSession = useSupervisorStore(s => s.removeSession)
 
   const handleSelect = (id: string) => {
     setActiveSession(id)
     onSelect()
+  }
+
+  const handleDelete = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    if (!confirm('Delete this session and all its data?')) return
+    fetch(`${API_URL}/api/sessions/${id}`, { method: 'DELETE' })
+      .then(() => removeSession(id))
+      .catch(() => {})
   }
 
   if (sessions.length === 0) {
@@ -91,6 +102,24 @@ export function SessionList({ onSelect }: SessionListProps) {
             <span style={{ color: '#666' }}>
               {new Date(s.started_at * 1000).toLocaleTimeString()}
             </span>
+            <button
+              onClick={(e) => handleDelete(e, s.id)}
+              title="Delete session"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#666',
+                cursor: 'pointer',
+                fontSize: 14,
+                padding: '2px 6px',
+                borderRadius: 4,
+                fontFamily: 'monospace',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#666')}
+            >
+              x
+            </button>
           </div>
         </div>
       ))}
