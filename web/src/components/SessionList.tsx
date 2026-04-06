@@ -1,7 +1,15 @@
 import { useSupervisorStore } from '../store/supervisor'
+import { Bot } from './Bot'
+import type { BotState } from '../types/events'
 
 interface SessionListProps {
   onSelect: () => void
+}
+
+function sessionState(status: string): BotState {
+  if (status === 'running') return 'working'
+  if (status === 'error') return 'error'
+  return 'done'
 }
 
 export function SessionList({ onSelect }: SessionListProps) {
@@ -50,16 +58,21 @@ export function SessionList({ onSelect }: SessionListProps) {
           onMouseEnter={e => (e.currentTarget.style.borderColor = '#3b82f6')}
           onMouseLeave={e => (e.currentTarget.style.borderColor = '#222')}
         >
-          <div>
-            <div
-              style={{ fontSize: 13, color: '#e0e0e0', marginBottom: 4, userSelect: 'all', cursor: 'text' }}
-              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(s.id) }}
-              title="Click to copy"
-            >
-              {s.id}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flexShrink: 0 }}>
+              <Bot type="root" name="" state={sessionState(s.status)} size={36} />
             </div>
-            <div style={{ fontSize: 11, color: '#666' }}>
-              {s.cwd || 'unknown directory'}
+            <div>
+              <div
+                style={{ fontSize: 13, color: '#e0e0e0', marginBottom: 4, userSelect: 'all', cursor: 'text' }}
+                onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(s.id) }}
+                title="Click to copy"
+              >
+                {s.id}
+              </div>
+              <div style={{ fontSize: 11, color: '#666' }}>
+                {s.cwd || 'unknown directory'}
+              </div>
             </div>
           </div>
 
