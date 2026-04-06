@@ -4,6 +4,7 @@ export function DetailPanel() {
   const events = useSupervisorStore(s => s.events)
   const selectedEventId = useSupervisorStore(s => s.selectedEventId)
   const selectedAgentId = useSupervisorStore(s => s.selectedAgentId)
+  const selectEvent = useSupervisorStore(s => s.selectEvent)
   const agents = useSupervisorStore(s => s.agents)
 
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null
@@ -19,12 +20,46 @@ export function DetailPanel() {
         <Field label="State" value={selectedAgent.state} />
         <Field label="Tools used" value={String(selectedAgent.toolCount)} />
         {selectedAgent.currentTool && <Field label="Current" value={selectedAgent.currentTool} />}
-        <h4 style={{ fontSize: 12, margin: '12px 0 8px', color: '#888' }}>Recent actions</h4>
-        {agentEvents.slice(-5).map(e => (
-          <div key={e.id} style={{ padding: '4px 0', borderBottom: '1px solid #1a1a1a', color: '#888', fontSize: 11 }}>
-            {e.tool_name || e.event_type} {e.duration_ms != null && `(${e.duration_ms}ms)`}
-          </div>
-        ))}
+        <h4 style={{ fontSize: 12, margin: '12px 0 8px', color: '#888' }}>Actions</h4>
+        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          {agentEvents.reduce<{ id: string; toolUseId: string; toolName: string; subtype: string; durationMs?: number }[]>((acc, e) => {
+            if (e.tool_use_id) {
+              const existing = acc.find(a => a.toolUseId === e.tool_use_id)
+              if (existing) {
+                // Update with complete info
+                existing.subtype = e.event_subtype
+                existing.id = e.id
+                if (e.duration_ms != null) existing.durationMs = e.duration_ms
+              } else {
+                acc.push({ id: e.id, toolUseId: e.tool_use_id, toolName: e.tool_name || e.event_type, subtype: e.event_subtype, durationMs: e.duration_ms ?? undefined })
+              }
+            } else {
+              acc.push({ id: e.id, toolUseId: e.id, toolName: e.tool_name || e.event_type, subtype: e.event_subtype, durationMs: e.duration_ms ?? undefined })
+            }
+            return acc
+          }, []).map(a => (
+            <div
+              key={a.toolUseId}
+              onClick={() => selectEvent(a.id)}
+              style={{
+                padding: '4px 6px',
+                borderBottom: '1px solid #1a1a1a',
+                color: '#888',
+                fontSize: 11,
+                cursor: 'pointer',
+                borderRadius: 2,
+              }}
+              onMouseEnter={el => (el.currentTarget.style.background = '#1a1a2e')}
+              onMouseLeave={el => (el.currentTarget.style.background = 'transparent')}
+            >
+              <span style={{ color: a.subtype === 'complete' ? '#22c55e' : a.toolName === 'notification' ? '#a855f7' : '#3b82f6', marginRight: 4 }}>
+                {a.subtype === 'complete' ? '✓' : a.toolName === 'notification' ? '●' : '▶'}
+              </span>
+              {a.toolName}
+              {a.durationMs != null && <span style={{ color: '#555' }}> ({a.durationMs}ms)</span>}
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

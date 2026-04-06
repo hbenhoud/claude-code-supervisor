@@ -178,5 +178,5 @@ export const useSupervisorStore = create<SupervisorState>((set, get) => ({
   selectedEventId: null,
   selectedAgentId: null,
   selectEvent: (id) => set({ selectedEventId: id, liveMode: false }),
-  selectAgent: (id) => set({ selectedAgentId: id }),
+  selectAgent: (id) => set({ selectedAgentId: id, selectedEventId: null, liveMode: false }),
 }))

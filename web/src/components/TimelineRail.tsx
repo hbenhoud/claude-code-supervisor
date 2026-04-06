@@ -26,11 +26,13 @@ function getNodeStyle(evt: { event_type: string; event_subtype: string; error?: 
 function TimelineNode({
   evt,
   isSelected,
+  dimmed,
   left,
   onSelect,
 }: {
   evt: SupervisorEvent
   isSelected: boolean
+  dimmed: boolean
   left: number
   onSelect: (id: string) => void
 }) {
@@ -50,9 +52,10 @@ function TimelineNode({
         background: style.bg,
         border: `2px solid ${style.border}`,
         cursor: 'pointer',
+        opacity: dimmed ? 0.15 : 1,
         boxShadow: isSelected ? `0 0 8px ${style.border}` : 'none',
         transform: isSelected ? 'scale(1.3)' : 'scale(1)',
-        transition: 'transform 0.15s, box-shadow 0.15s',
+        transition: 'transform 0.15s, box-shadow 0.15s, opacity 0.15s',
       }}
     />
   )
@@ -61,6 +64,7 @@ function TimelineNode({
 export function TimelineRail() {
   const events = useSupervisorStore(s => s.events)
   const selectedEventId = useSupervisorStore(s => s.selectedEventId)
+  const selectedAgentId = useSupervisorStore(s => s.selectedAgentId)
   const selectEvent = useSupervisorStore(s => s.selectEvent)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [scrollLeft, setScrollLeft] = useState(0)
@@ -127,6 +131,7 @@ export function TimelineRail() {
               key={evt.id}
               evt={evt}
               isSelected={evt.id === selectedEventId}
+              dimmed={selectedAgentId != null && evt.agent_id !== selectedAgentId}
               left={(startIdx + i) * NODE_STEP}
               onSelect={selectEvent}
             />
