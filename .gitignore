@@ -24,3 +24,7 @@ web/node_modules/
 
 # Go
 vendor/
+
+# Playwright MCP
+.playwright-mcp/
+screenshot-*.png
