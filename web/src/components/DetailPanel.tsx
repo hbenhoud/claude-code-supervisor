@@ -13,11 +13,21 @@ export function DetailPanel() {
   // If an agent is selected but no event, show agent info
   if (!selectedEvent && selectedAgent) {
     const agentEvents = events.filter(e => e.agent_id === selectedAgent.id)
+    // Find the agent_spawn event to get description/prompt
+    const spawnId = selectedAgent.id.replace('agent-', '')
+    const spawnEvent = events.find(e =>
+      e.event_type === 'agent_spawn' && e.event_subtype === 'start' && e.tool_use_id?.startsWith(spawnId)
+    )
+    const spawnInput = spawnEvent?.tool_input as Record<string, unknown> | undefined
+    const description = spawnInput?.description as string | undefined
+    const prompt = spawnInput?.prompt as string | undefined
+
     return (
       <div style={{ width: 280, flexShrink: 0, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
         <h3 style={{ fontSize: 14, margin: '0 0 12px', color: '#e0e0e0' }}>{selectedAgent.name}</h3>
         <Field label="Type" value={selectedAgent.type} />
         <Field label="State" value={selectedAgent.state} />
+        {description && <Field label="Task" value={description} />}
         <Field label="Tools used" value={String(selectedAgent.toolCount)} />
         {selectedAgent.currentTool && <Field label="Current" value={selectedAgent.currentTool} />}
         <h4 style={{ fontSize: 12, margin: '12px 0 8px', color: '#888' }}>Actions</h4>
@@ -60,6 +70,9 @@ export function DetailPanel() {
             </div>
           ))}
         </div>
+        {prompt && agentEvents.length === 0 && (
+          <CollapsibleJson label="Prompt" data={prompt} />
+        )}
       </div>
     )
   }

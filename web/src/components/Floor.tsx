@@ -1,6 +1,9 @@
+import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bot } from './Bot'
 import { useSupervisorStore } from '../store/supervisor'
+
+const FADE_DELAY = 3000 // ms before completed agents fade out
 
 export function Floor() {
   const agents = useSupervisorStore(s => s.agents)
@@ -8,9 +11,54 @@ export function Floor() {
   const selectAgent = useSupervisorStore(s => s.selectAgent)
   const events = useSupervisorStore(s => s.events)
 
+  // Track recently completed agents to delay their removal
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set())
+  const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
   const agentList = Array.from(agents.values())
   const root = agentList.find(a => a.id === 'root')
   const subAgents = agentList.filter(a => a.id !== 'root')
+
+  useEffect(() => {
+    const nextVisible = new Set<string>()
+
+    for (const agent of subAgents) {
+      if (agent.state === 'working' || agent.state === 'error') {
+        // Active — show immediately, cancel any pending fade
+        nextVisible.add(agent.id)
+        const existing = timers.current.get(agent.id)
+        if (existing) {
+          clearTimeout(existing)
+          timers.current.delete(agent.id)
+        }
+      } else if (visibleIds.has(agent.id) && !timers.current.has(agent.id)) {
+        // Just completed — keep visible, start fade timer
+        nextVisible.add(agent.id)
+        const timer = setTimeout(() => {
+          setVisibleIds(prev => {
+            const next = new Set(prev)
+            next.delete(agent.id)
+            return next
+          })
+          timers.current.delete(agent.id)
+        }, FADE_DELAY)
+        timers.current.set(agent.id, timer)
+      } else if (timers.current.has(agent.id)) {
+        // Timer still running — keep visible
+        nextVisible.add(agent.id)
+      }
+    }
+
+    setVisibleIds(nextVisible)
+
+    return () => {
+      const currentTimers = timers.current
+      for (const t of currentTimers.values()) clearTimeout(t)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agents])
+
+  const visibleSubAgents = subAgents.filter(a => visibleIds.has(a.id))
 
   if (agentList.length === 0) {
     return (
@@ -31,8 +79,8 @@ export function Floor() {
     )
   }
 
-  // Compute radial positions for sub-agents
-  const centerX = 50 // percentage
+  // Compute radial positions for visible sub-agents
+  const centerX = 50
   const centerY = 35
   const radius = 30
 
@@ -45,8 +93,8 @@ export function Floor() {
     }}>
       {/* Conduit lines */}
       <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-        {subAgents.map((agent, i) => {
-          const angle = ((2 * Math.PI) / Math.max(subAgents.length, 1)) * i - Math.PI / 2
+        {visibleSubAgents.map((agent, i) => {
+          const angle = ((2 * Math.PI) / Math.max(visibleSubAgents.length, 1)) * i - Math.PI / 2
           const targetX = centerX + radius * Math.cos(angle)
           const targetY = centerY + radius * Math.sin(angle) + 15
 
@@ -89,8 +137,8 @@ export function Floor() {
 
       {/* Sub-agent bots */}
       <AnimatePresence>
-        {subAgents.map((agent, i) => {
-          const angle = ((2 * Math.PI) / Math.max(subAgents.length, 1)) * i - Math.PI / 2
+        {visibleSubAgents.map((agent, i) => {
+          const angle = ((2 * Math.PI) / Math.max(visibleSubAgents.length, 1)) * i - Math.PI / 2
           const x = centerX + radius * Math.cos(angle)
           const y = centerY + radius * Math.sin(angle) + 15
 
