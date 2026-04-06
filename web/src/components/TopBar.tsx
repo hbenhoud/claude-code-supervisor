@@ -85,8 +85,12 @@ export function TopBar() {
           background: connected ? '#4ade80' : '#ef4444',
         }} />
         {activeSessionId && (
-          <span style={{ color: '#666' }}>
-            {activeSessionId.slice(0, 16)}...
+          <span
+            onClick={() => navigator.clipboard.writeText(activeSessionId)}
+            title="Click to copy"
+            style={{ color: '#666', cursor: 'pointer', userSelect: 'all' }}
+          >
+            {activeSessionId}
           </span>
         )}
       </div>

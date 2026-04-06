@@ -51,8 +51,12 @@ export function SessionList({ onSelect }: SessionListProps) {
           onMouseLeave={e => (e.currentTarget.style.borderColor = '#222')}
         >
           <div>
-            <div style={{ fontSize: 13, color: '#e0e0e0', marginBottom: 4 }}>
-              {s.id.slice(0, 20)}...
+            <div
+              style={{ fontSize: 13, color: '#e0e0e0', marginBottom: 4, userSelect: 'all', cursor: 'text' }}
+              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(s.id) }}
+              title="Click to copy"
+            >
+              {s.id}
             </div>
             <div style={{ fontSize: 11, color: '#666' }}>
               {s.cwd || 'unknown directory'}
