@@ -1,0 +1,26 @@
+# Build outputs
+dist/
+web/dist/
+
+# Dependencies
+web/node_modules/
+
+# SQLite
+*.db
+*.db-wal
+*.db-shm
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+.env.local
+
+# Go
+vendor/
