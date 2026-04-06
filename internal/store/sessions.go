@@ -88,6 +88,16 @@ func (db *DB) DeleteSession(id string) error {
 	return tx.Commit()
 }
 
+func (db *DB) UpdateSessionTranscriptPath(sessionID, path string) {
+	db.conn.Exec(`UPDATE sessions SET transcript_path = ? WHERE id = ? AND (transcript_path IS NULL OR transcript_path = '')`, path, sessionID)
+}
+
+func (db *DB) GetSessionTranscriptPath(sessionID string) string {
+	var path string
+	db.conn.QueryRow(`SELECT COALESCE(transcript_path, '') FROM sessions WHERE id = ?`, sessionID).Scan(&path)
+	return path
+}
+
 func (db *DB) IncrementToolCount(sessionID string) {
 	db.conn.Exec(`UPDATE sessions SET tool_count = tool_count + 1 WHERE id = ?`, sessionID)
 }

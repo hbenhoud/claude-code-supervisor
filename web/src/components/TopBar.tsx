@@ -46,6 +46,7 @@ export function TopBar() {
   const agents = useSupervisorStore(s => s.agents)
   const activeSessionId = useSupervisorStore(s => s.activeSessionId)
   const [elapsed, setElapsed] = useState(0)
+  const [totalTokens, setTotalTokens] = useState<number | null>(null)
 
   const toolCount = events.filter(e => e.event_type === 'tool_call' && e.event_subtype === 'complete').length
   const botCount = agents.size
@@ -60,6 +61,28 @@ export function TopBar() {
     const interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
   }, [firstEvent])
+
+  // Poll usage
+  useEffect(() => {
+    if (!activeSessionId) return
+    const fetchUsage = () => {
+      fetch(`http://localhost:3001/api/sessions/${activeSessionId}/usage`)
+        .then(r => r.json())
+        .then((data: { total_tokens: number }) => {
+          if (data.total_tokens > 0) setTotalTokens(data.total_tokens)
+        })
+        .catch(() => {})
+    }
+    fetchUsage()
+    const interval = setInterval(fetchUsage, 5000)
+    return () => clearInterval(interval)
+  }, [activeSessionId])
+
+  const formatTokens = (n: number) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+    return String(n)
+  }
 
   const formatDuration = (s: number) => {
     const m = Math.floor(s / 60)
@@ -140,14 +163,9 @@ export function TopBar() {
           <span style={{ color: '#e0e0e0', fontWeight: 'bold' }}>{botCount}</span>
         </Tooltip>
 
-        <Tooltip text="Available after session ends.\nCost and token data comes from Claude Code logs.">
-          <span style={{ color: '#555' }}>Cost</span>
-          <span style={{ color: '#444' }}>--</span>
-        </Tooltip>
-
-        <Tooltip text="Available after session ends.\nToken count comes from Claude Code logs.">
-          <span style={{ color: '#555' }}>Tokens</span>
-          <span style={{ color: '#444' }}>--</span>
+        <Tooltip text="Total tokens consumed in this session.\nInput + output + cache tokens.">
+          <span style={{ color: '#888' }}>Tokens</span>
+          <span style={{ color: '#e0e0e0', fontWeight: 'bold' }}>{totalTokens != null ? formatTokens(totalTokens) : '--'}</span>
         </Tooltip>
       </div>
     </div>

@@ -40,6 +40,11 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 	// Ensure session exists
 	s.db.EnsureSession(evt.SessionID, raw.CWD)
 
+	// Store transcript path if available
+	if raw.TranscriptPath != "" {
+		s.db.UpdateSessionTranscriptPath(evt.SessionID, raw.TranscriptPath)
+	}
+
 	// Persist event
 	if err := s.db.InsertEvent(evt); err != nil {
 		log.Printf("Failed to persist event: %v", err)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -119,11 +120,15 @@ func (db *DB) migrate() error {
 			FOREIGN KEY (session_id) REFERENCES sessions(id)
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_skill_stats_name ON skill_stats(skill_name)`,
+		`ALTER TABLE sessions ADD COLUMN transcript_path TEXT`,
 	}
 
 	for _, m := range migrations {
 		if _, err := db.conn.Exec(m); err != nil {
-			return fmt.Errorf("migration failed: %w\nSQL: %s", err, m)
+			// Ignore "duplicate column" errors from ALTER TABLE migrations
+			if !strings.Contains(err.Error(), "duplicate column") {
+				return fmt.Errorf("migration failed: %w\nSQL: %s", err, m)
+			}
 		}
 	}
 	return nil

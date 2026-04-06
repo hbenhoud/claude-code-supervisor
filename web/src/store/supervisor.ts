@@ -129,7 +129,7 @@ export const useSupervisorStore = create<SupervisorState>((set, get) => ({
       const type = subAgentType || inferBotType(agentId, description)
       // The spawned agent will appear when its own tool calls arrive
       // But we can create a placeholder from the Agent tool_input
-      const spawnedId = evt.tool_use_id ? `agent-${evt.tool_use_id.slice(0, 8)}` : agentId
+      const spawnedId = evt.tool_use_id ? `agent-${evt.tool_use_id.slice(0, 16)}` : agentId
       if (!agents.has(spawnedId)) {
         agents.set(spawnedId, {
           id: spawnedId,

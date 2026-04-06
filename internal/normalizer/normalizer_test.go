@@ -184,7 +184,7 @@ func TestTemporalWindowSingleAgent(t *testing.T) {
 		Timestamp:    time.Now(),
 	})
 
-	expectedAgentID := "agent-toolu_ag" // "agent-" + first 8 chars of "toolu_agent_aaa"
+	expectedAgentID := "agent-toolu_agent_aaa" // "agent-" + first 16 chars of "toolu_agent_aaa"
 	if evt.AgentID != expectedAgentID {
 		t.Errorf("expected agent_id=%s, got %s", expectedAgentID, evt.AgentID)
 	}
@@ -268,7 +268,7 @@ func TestTemporalWindowParallelAgents(t *testing.T) {
 		Timestamp:    time.Now(),
 	})
 
-	expectedAgentID := "agent-toolu_ag" // "agent-" + first 8 chars of "toolu_agent_bbb"
+	expectedAgentID := "agent-toolu_agent_bbb" // "agent-" + first 16 chars of "toolu_agent_bbb"
 	if evt2.AgentID != expectedAgentID {
 		t.Errorf("expected agent_id=%s after one agent closed, got %s", expectedAgentID, evt2.AgentID)
 	}

@@ -92,7 +92,7 @@ func (n *Normalizer) Normalize(raw hooks.HookEvent) *SupervisorEvent {
 	case hooks.HookPreToolUse:
 		// If this is an Agent tool call, register it as an open agent
 		if toolName == "Agent" && raw.ToolUseID != "" {
-			aid := "agent-" + raw.ToolUseID[:min(8, len(raw.ToolUseID))]
+			aid := "agent-" + raw.ToolUseID[:min(16, len(raw.ToolUseID))]
 			n.mu.Lock()
 			if n.openAgents[sessionID] == nil {
 				n.openAgents[sessionID] = make(map[string]*openAgent)

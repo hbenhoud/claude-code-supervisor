@@ -32,6 +32,7 @@ func NewRouter(db *store.DB) http.Handler {
 	mux.HandleFunc("GET /api/sessions/{id}", s.handleGetSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.handleDeleteSession)
 	mux.HandleFunc("GET /api/sessions/{id}/events", s.handleGetSessionEvents)
+	mux.HandleFunc("GET /api/sessions/{id}/usage", s.handleGetUsage)
 
 	// WebSocket
 	mux.HandleFunc("GET /ws", s.handleWebSocket)

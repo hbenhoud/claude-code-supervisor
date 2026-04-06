@@ -37,6 +37,7 @@ type HookEvent struct {
 	ToolOutputRaw   json.RawMessage `json:"tool_output,omitempty"`
 	ToolUseID       string          `json:"tool_use_id,omitempty"`
 	ParentToolUseID string          `json:"parent_tool_use_id,omitempty"`
+	TranscriptPath  string          `json:"transcript_path,omitempty"`
 }
 
 // GetSessionID returns the session ID from whichever field has data.
