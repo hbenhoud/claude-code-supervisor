@@ -1,0 +1,44 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: Supervisor
+      - generic [ref=e8]: e2e-test-session...
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]: Tools
+        - generic [ref=e12]: "0"
+        - generic [ref=e13]: i
+      - generic [ref=e14]:
+        - generic [ref=e15]: Duration
+        - generic [ref=e16]: 5s
+        - generic [ref=e17]: i
+      - generic [ref=e18]:
+        - generic [ref=e19]: Bots
+        - generic [ref=e20]: "1"
+        - generic [ref=e21]: i
+      - generic [ref=e22]:
+        - generic [ref=e23]: Cost
+        - generic [ref=e24]: "--"
+        - generic [ref=e25]: i
+      - generic [ref=e26]:
+        - generic [ref=e27]: Tokens
+        - generic [ref=e28]: "--"
+        - generic [ref=e29]: i
+  - generic [ref=e30]:
+    - generic [ref=e32] [cursor=pointer]:
+      - generic [ref=e33]:
+        - img [ref=e34]
+        - generic [ref=e47]: Core-si
+      - generic [ref=e48]: Bash
+      - generic [ref=e49]: 0 tools
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - img
+        - generic [ref=e54] [cursor=pointer]:
+          - img [ref=e55]
+          - generic [ref=e68]: Core-si
+          - generic [ref=e69]: Bash
+      - generic [ref=e71]:
+        - generic "Bash"
+    - generic [ref=e72]: Click a bot or timeline node to see details
+  - button "Sessions" [ref=e73] [cursor=pointer]

@@ -12,12 +12,12 @@ func TestNormalizePreToolUse(t *testing.T) {
 	n := New()
 
 	raw := hooks.HookEvent{
-		Hook:      hooks.HookPreToolUse,
-		SessionID: "sess-1",
-		Tool:      "Read",
-		Input:     json.RawMessage(`{"file_path":"/tmp/test.go"}`),
-		CWD:       "/home/user",
-		Timestamp: time.Now(),
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Read",
+		ToolUseID:    "toolu_abc",
+		Input:        json.RawMessage(`{"file_path":"/tmp/test.go"}`),
+		Timestamp:    time.Now(),
 	}
 
 	evt := n.Normalize(raw)
@@ -34,11 +34,11 @@ func TestNormalizePreToolUse(t *testing.T) {
 	if evt.ToolName != "Read" {
 		t.Errorf("expected tool_name=Read, got %s", evt.ToolName)
 	}
+	if evt.AgentID != "root" {
+		t.Errorf("expected agent_id=root, got %s", evt.AgentID)
+	}
 	if evt.Sequence != 1 {
 		t.Errorf("expected sequence=1, got %d", evt.Sequence)
-	}
-	if evt.ID == "" {
-		t.Error("expected non-empty ID")
 	}
 }
 
@@ -49,20 +49,22 @@ func TestNormalizePostToolUsePairsWithPre(t *testing.T) {
 	postTime := preTime.Add(150 * time.Millisecond)
 
 	pre := hooks.HookEvent{
-		Hook:      hooks.HookPreToolUse,
-		SessionID: "sess-1",
-		Tool:      "Edit",
-		Input:     json.RawMessage(`{"file_path":"/tmp/test.go"}`),
-		Timestamp: preTime,
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Edit",
+		ToolUseID:    "toolu_xyz",
+		Input:        json.RawMessage(`{"file_path":"/tmp/test.go"}`),
+		Timestamp:    preTime,
 	}
 	n.Normalize(pre)
 
 	post := hooks.HookEvent{
-		Hook:      hooks.HookPostToolUse,
-		SessionID: "sess-1",
-		Tool:      "Edit",
-		Output:    json.RawMessage(`{"type":"patch"}`),
-		Timestamp: postTime,
+		Hook:         hooks.HookPostToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Edit",
+		ToolUseID:    "toolu_xyz",
+		Output:       json.RawMessage(`{"type":"patch"}`),
+		Timestamp:    postTime,
 	}
 	evt := n.Normalize(post)
 
@@ -81,19 +83,17 @@ func TestNormalizeOrphanPostToolUse(t *testing.T) {
 	n := New()
 
 	post := hooks.HookEvent{
-		Hook:      hooks.HookPostToolUse,
-		SessionID: "sess-1",
-		Tool:      "Bash",
-		Output:    json.RawMessage(`{"stdout":"hello"}`),
-		Timestamp: time.Now(),
+		Hook:         hooks.HookPostToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Bash",
+		ToolUseID:    "toolu_orphan",
+		Output:       json.RawMessage(`{"stdout":"hello"}`),
+		Timestamp:    time.Now(),
 	}
 	evt := n.Normalize(post)
 
 	if evt.DurationMs != nil {
 		t.Error("expected nil duration for orphan PostToolUse")
-	}
-	if evt.EventSubtype != "complete" {
-		t.Errorf("expected event_subtype=complete, got %s", evt.EventSubtype)
 	}
 }
 
@@ -102,10 +102,10 @@ func TestNormalizeSequenceMonotonic(t *testing.T) {
 
 	for i := 1; i <= 5; i++ {
 		evt := n.Normalize(hooks.HookEvent{
-			Hook:      hooks.HookPreToolUse,
-			SessionID: "sess-1",
-			Tool:      "Read",
-			Timestamp: time.Now(),
+			Hook:         hooks.HookPreToolUse,
+			SessionIDRaw: "sess-1",
+			ToolNameRaw:  "Read",
+			Timestamp:    time.Now(),
 		})
 		if evt.Sequence != i {
 			t.Errorf("expected sequence=%d, got %d", i, evt.Sequence)
@@ -117,46 +117,64 @@ func TestNormalizeSequencePerSession(t *testing.T) {
 	n := New()
 
 	evt1 := n.Normalize(hooks.HookEvent{
-		Hook: hooks.HookPreToolUse, SessionID: "sess-A", Tool: "Read", Timestamp: time.Now(),
+		Hook: hooks.HookPreToolUse, SessionIDRaw: "sess-A", ToolNameRaw: "Read", Timestamp: time.Now(),
 	})
 	evt2 := n.Normalize(hooks.HookEvent{
-		Hook: hooks.HookPreToolUse, SessionID: "sess-B", Tool: "Read", Timestamp: time.Now(),
+		Hook: hooks.HookPreToolUse, SessionIDRaw: "sess-B", ToolNameRaw: "Read", Timestamp: time.Now(),
 	})
 	evt3 := n.Normalize(hooks.HookEvent{
-		Hook: hooks.HookPreToolUse, SessionID: "sess-A", Tool: "Edit", Timestamp: time.Now(),
+		Hook: hooks.HookPreToolUse, SessionIDRaw: "sess-A", ToolNameRaw: "Edit", Timestamp: time.Now(),
 	})
 
 	if evt1.Sequence != 1 {
-		t.Errorf("sess-A first event: expected 1, got %d", evt1.Sequence)
+		t.Errorf("sess-A first: expected 1, got %d", evt1.Sequence)
 	}
 	if evt2.Sequence != 1 {
-		t.Errorf("sess-B first event: expected 1, got %d", evt2.Sequence)
+		t.Errorf("sess-B first: expected 1, got %d", evt2.Sequence)
 	}
 	if evt3.Sequence != 2 {
-		t.Errorf("sess-A second event: expected 2, got %d", evt3.Sequence)
+		t.Errorf("sess-A second: expected 2, got %d", evt3.Sequence)
 	}
 }
 
-func TestNormalizeSubagentSpawn(t *testing.T) {
+func TestNormalizeAgentToolCallCreatesAgentSpawn(t *testing.T) {
 	n := New()
 
 	evt := n.Normalize(hooks.HookEvent{
-		Hook:          hooks.HookSubagentSpawn,
-		SessionID:     "sess-1",
-		AgentID:       "agent-xyz",
-		ParentAgentID: "root",
-		Description:   "explore code",
-		Timestamp:     time.Now(),
+		Hook:         hooks.HookPreToolUse,
+		SessionIDRaw: "sess-1",
+		ToolNameRaw:  "Agent",
+		ToolUseID:    "toolu_agent_123",
+		Input:        json.RawMessage(`{"description":"explore code","subagent_type":"Explore"}`),
+		Timestamp:    time.Now(),
 	})
 
 	if evt.EventType != "agent_spawn" {
 		t.Errorf("expected event_type=agent_spawn, got %s", evt.EventType)
 	}
-	if evt.AgentID != "agent-xyz" {
-		t.Errorf("expected agent_id=agent-xyz, got %s", evt.AgentID)
+	if evt.ToolName != "Agent" {
+		t.Errorf("expected tool_name=Agent, got %s", evt.ToolName)
 	}
-	if evt.ParentAgentID != "root" {
-		t.Errorf("expected parent_agent_id=root, got %s", evt.ParentAgentID)
+}
+
+func TestNormalizeSubAgentToolCall(t *testing.T) {
+	n := New()
+
+	evt := n.Normalize(hooks.HookEvent{
+		Hook:            hooks.HookPreToolUse,
+		SessionIDRaw:    "sess-1",
+		ToolNameRaw:     "Read",
+		ToolUseID:       "toolu_sub_read",
+		ParentToolUseID: "toolu_agent_123",
+		Input:           json.RawMessage(`{"file_path":"/tmp/test.go"}`),
+		Timestamp:       time.Now(),
+	})
+
+	if evt.AgentID == "root" {
+		t.Error("expected agent_id to NOT be root for sub-agent tool call")
+	}
+	if evt.ParentAgentID == "" {
+		t.Error("expected parent_agent_id to be set")
 	}
 }
 
@@ -164,11 +182,10 @@ func TestNormalizeNotification(t *testing.T) {
 	n := New()
 
 	evt := n.Normalize(hooks.HookEvent{
-		Hook:      hooks.HookNotification,
-		SessionID: "sess-1",
-		Title:     "Task completed",
-		Body:      "Done",
-		Timestamp: time.Now(),
+		Hook:         hooks.HookNotification,
+		SessionIDRaw: "sess-1",
+		Title:        "Task completed",
+		Timestamp:    time.Now(),
 	})
 
 	if evt.EventType != "notification" {

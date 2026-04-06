@@ -62,28 +62,27 @@ func writeSettings(path string, settings map[string]any) error {
 
 func buildHookCommand(hookType, apiURL string) string {
 	// Claude Code passes hook data as JSON on stdin (not env vars).
-	// We read stdin with jq, add our hook type, and POST to the Supervisor.
+	// We forward the ENTIRE stdin JSON and just add our hook type marker.
+	// This preserves all fields (session_id, tool_name, tool_input, tool_output,
+	// tool_use_id, parent_tool_use_id, etc.) without needing to know them upfront.
 	endpoint := apiURL + "/api/events"
 
+	hookValue := ""
 	switch hookType {
 	case "PreToolUse":
-		return fmt.Sprintf(
-			`cat | jq -c '. + {hook: "pre_tool_use", session: .session_id, tool: .tool_name, input: .tool_input, cwd: .cwd}' | curl -s -m 1 -X POST %s -H 'Content-Type: application/json' -d @- 2>/dev/null; true`,
-			endpoint,
-		)
+		hookValue = "pre_tool_use"
 	case "PostToolUse":
-		return fmt.Sprintf(
-			`cat | jq -c '. + {hook: "post_tool_use", session: .session_id, tool: .tool_name, input: .tool_input, output: .tool_output}' | curl -s -m 1 -X POST %s -H 'Content-Type: application/json' -d @- 2>/dev/null; true`,
-			endpoint,
-		)
+		hookValue = "post_tool_use"
 	case "Notification":
-		return fmt.Sprintf(
-			`cat | jq -c '. + {hook: "notification", session: .session_id, title: .notification_title, body: .notification_body}' | curl -s -m 1 -X POST %s -H 'Content-Type: application/json' -d @- 2>/dev/null; true`,
-			endpoint,
-		)
+		hookValue = "notification"
 	default:
 		return ""
 	}
+
+	return fmt.Sprintf(
+		`cat | jq -c '. + {hook: "%s"}' | curl -s -m 1 -X POST %s -H 'Content-Type: application/json' -d @- 2>/dev/null; true`,
+		hookValue, endpoint,
+	)
 }
 
 func Install(apiPort int) error {

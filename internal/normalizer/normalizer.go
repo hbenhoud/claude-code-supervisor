@@ -29,9 +29,12 @@ type SupervisorEvent struct {
 
 // Normalizer transforms raw hook events into canonical SupervisorEvents.
 type Normalizer struct {
-	mu       sync.Mutex
+	mu           sync.Mutex
 	seqBySession map[string]int
-	pendingPre   map[string]*pendingToolUse // keyed by session_id + tool_name + sequence
+	// pendingPre tracks PreToolUse events by (session_id, tool_use_id) for duration pairing
+	pendingPre map[string]*pendingToolUse
+	// agentToolUseIDs tracks which tool_use_ids are Agent spawns, to tag sub-agent events
+	agentToolUseIDs map[string]string // tool_use_id -> agent label
 }
 
 type pendingToolUse struct {
@@ -41,8 +44,9 @@ type pendingToolUse struct {
 
 func New() *Normalizer {
 	return &Normalizer{
-		seqBySession: make(map[string]int),
-		pendingPre:   make(map[string]*pendingToolUse),
+		seqBySession:    make(map[string]int),
+		pendingPre:      make(map[string]*pendingToolUse),
+		agentToolUseIDs: make(map[string]string),
 	}
 }
 
@@ -60,56 +64,95 @@ func (n *Normalizer) Normalize(raw hooks.HookEvent) *SupervisorEvent {
 		now = raw.Timestamp
 	}
 
-	seq := n.nextSequence(raw.SessionID)
+	sessionID := raw.GetSessionID()
+	toolName := raw.GetToolName()
+	seq := n.nextSequence(sessionID)
+
+	// Determine agent_id from parent_tool_use_id
+	// If parent_tool_use_id is set, this tool call belongs to a sub-agent
+	agentID := "root"
+	parentAgentID := ""
+	if raw.ParentToolUseID != "" {
+		agentID = "agent-" + raw.ParentToolUseID[:min(8, len(raw.ParentToolUseID))]
+		parentAgentID = "root"
+	}
 
 	switch raw.Hook {
 	case hooks.HookPreToolUse:
 		evt := &SupervisorEvent{
-			ID:           generateID(),
-			SessionID:    raw.SessionID,
-			Timestamp:    now,
-			Sequence:     seq,
-			EventType:    "tool_call",
-			EventSubtype: "start",
-			AgentID:      "root",
-			ToolName:     raw.Tool,
-			ToolInput:    raw.Input,
+			ID:            generateID(),
+			SessionID:     sessionID,
+			Timestamp:     now,
+			Sequence:      seq,
+			EventType:     "tool_call",
+			EventSubtype:  "start",
+			AgentID:       agentID,
+			ParentAgentID: parentAgentID,
+			ToolName:      toolName,
+			ToolUseID:     raw.ToolUseID,
+			ToolInput:     raw.GetInput(),
 		}
-		// Store as pending for pairing with PostToolUse
-		key := raw.SessionID + ":" + raw.Tool
-		n.mu.Lock()
-		n.pendingPre[key] = &pendingToolUse{Event: evt, Timestamp: now}
-		n.mu.Unlock()
+
+		// If this is an Agent tool call, track it as a sub-agent spawn
+		if toolName == "Agent" {
+			evt.EventType = "agent_spawn"
+			evt.EventSubtype = "start"
+			if raw.ToolUseID != "" {
+				n.mu.Lock()
+				n.agentToolUseIDs[raw.ToolUseID] = agentID
+				n.mu.Unlock()
+			}
+		}
+
+		// Store as pending for duration pairing
+		if raw.ToolUseID != "" {
+			key := sessionID + ":" + raw.ToolUseID
+			n.mu.Lock()
+			n.pendingPre[key] = &pendingToolUse{Event: evt, Timestamp: now}
+			n.mu.Unlock()
+		}
+
 		return evt
 
 	case hooks.HookPostToolUse:
 		evt := &SupervisorEvent{
-			ID:           generateID(),
-			SessionID:    raw.SessionID,
-			Timestamp:    now,
-			Sequence:     seq,
-			EventType:    "tool_call",
-			EventSubtype: "complete",
-			AgentID:      "root",
-			ToolName:     raw.Tool,
-			ToolInput:    raw.Input,
-			ToolOutput:   raw.Output,
+			ID:            generateID(),
+			SessionID:     sessionID,
+			Timestamp:     now,
+			Sequence:      seq,
+			EventType:     "tool_call",
+			EventSubtype:  "complete",
+			AgentID:       agentID,
+			ParentAgentID: parentAgentID,
+			ToolName:      toolName,
+			ToolUseID:     raw.ToolUseID,
+			ToolInput:     raw.GetInput(),
+			ToolOutput:    raw.GetOutput(),
 		}
-		// Try to pair with pending PreToolUse
-		key := raw.SessionID + ":" + raw.Tool
-		n.mu.Lock()
-		if pending, ok := n.pendingPre[key]; ok {
-			duration := now.Sub(pending.Timestamp).Milliseconds()
-			evt.DurationMs = &duration
-			delete(n.pendingPre, key)
+
+		if toolName == "Agent" {
+			evt.EventType = "agent_spawn"
+			evt.EventSubtype = "complete"
 		}
-		n.mu.Unlock()
+
+		// Pair with pending PreToolUse for duration
+		if raw.ToolUseID != "" {
+			key := sessionID + ":" + raw.ToolUseID
+			n.mu.Lock()
+			if pending, ok := n.pendingPre[key]; ok {
+				duration := now.Sub(pending.Timestamp).Milliseconds()
+				evt.DurationMs = &duration
+				delete(n.pendingPre, key)
+			}
+			n.mu.Unlock()
+		}
+
 		return evt
 
 	case hooks.HookNotification:
 		return &SupervisorEvent{
 			ID:           generateID(),
-			SessionID:    raw.SessionID,
+			SessionID:    sessionID,
 			Timestamp:    now,
 			Sequence:     seq,
 			EventType:    "notification",
@@ -117,21 +160,10 @@ func (n *Normalizer) Normalize(raw hooks.HookEvent) *SupervisorEvent {
 			AgentID:      "root",
 		}
 
-	case hooks.HookSubagentSpawn:
-		return &SupervisorEvent{
-			ID:            generateID(),
-			SessionID:     raw.SessionID,
-			Timestamp:     now,
-			Sequence:      seq,
-			EventType:     "agent_spawn",
-			AgentID:       raw.AgentID,
-			ParentAgentID: raw.ParentAgentID,
-		}
-
 	default:
 		return &SupervisorEvent{
 			ID:        generateID(),
-			SessionID: raw.SessionID,
+			SessionID: sessionID,
 			Timestamp: now,
 			Sequence:  seq,
 			EventType: string(raw.Hook),
@@ -141,6 +173,12 @@ func (n *Normalizer) Normalize(raw hooks.HookEvent) *SupervisorEvent {
 }
 
 func generateID() string {
-	// Simple unique ID generator using timestamp + random
 	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), time.Now().UnixNano()%10000)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

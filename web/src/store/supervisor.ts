@@ -48,6 +48,21 @@ function generateBotName(type: BotType, id: string): string {
   return `${names[idx]}-${hash.slice(0, 2)}`
 }
 
+function extractAgentDescription(evt: SupervisorEvent): string | undefined {
+  if (!evt.tool_input || typeof evt.tool_input !== 'object') return undefined
+  const input = evt.tool_input as Record<string, unknown>
+  return (input.description as string) || (input.prompt as string) || undefined
+}
+
+function extractSubagentType(evt: SupervisorEvent): BotType | undefined {
+  if (!evt.tool_input || typeof evt.tool_input !== 'object') return undefined
+  const input = evt.tool_input as Record<string, unknown>
+  const subType = (input.subagent_type as string)?.toLowerCase()
+  if (subType === 'explore') return 'explore'
+  if (subType === 'plan') return 'plan'
+  return undefined
+}
+
 function inferBotState(evt: SupervisorEvent): BotState {
   if (evt.error) return 'error'
   if (evt.event_subtype === 'start') return 'working'
@@ -70,21 +85,10 @@ export const useSupervisorStore = create<SupervisorState>((set, get) => ({
     const newEvents = [...state.events, evt]
     const agents = new Map(state.agents)
 
-    // Handle agent spawn
-    if (evt.event_type === 'agent_spawn') {
-      const type = inferBotType(evt.agent_id)
-      agents.set(evt.agent_id, {
-        id: evt.agent_id,
-        parentId: evt.parent_agent_id,
-        type,
-        name: generateBotName(type, evt.agent_id),
-        state: 'idle',
-        toolCount: 0,
-      })
-    }
+    const agentId = evt.agent_id || 'root'
 
-    // Ensure root agent exists
-    if (!agents.has('root') && evt.agent_id === 'root') {
+    // Ensure root agent exists on first event
+    if (!agents.has('root')) {
       agents.set('root', {
         id: 'root',
         type: 'root',
@@ -94,9 +98,43 @@ export const useSupervisorStore = create<SupervisorState>((set, get) => ({
       })
     }
 
-    // Update agent state on tool call
-    if (evt.event_type === 'tool_call') {
-      const agentId = evt.agent_id || 'root'
+    // Ensure this agent exists (auto-create for sub-agents)
+    if (agentId !== 'root' && !agents.has(agentId)) {
+      const description = extractAgentDescription(evt)
+      const type = inferBotType(agentId, description)
+      agents.set(agentId, {
+        id: agentId,
+        parentId: evt.parent_agent_id || 'root',
+        type,
+        name: generateBotName(type, agentId),
+        state: 'idle',
+        toolCount: 0,
+      })
+    }
+
+    // Handle agent_spawn events (Agent tool calls)
+    if (evt.event_type === 'agent_spawn' && evt.event_subtype === 'start') {
+      // The tool_input contains the sub-agent's description/type
+      const description = extractAgentDescription(evt)
+      const subAgentType = extractSubagentType(evt)
+      const type = subAgentType || inferBotType(agentId, description)
+      // The spawned agent will appear when its own tool calls arrive
+      // But we can create a placeholder from the Agent tool_input
+      const spawnedId = evt.tool_use_id ? `agent-${evt.tool_use_id.slice(0, 8)}` : agentId
+      if (!agents.has(spawnedId)) {
+        agents.set(spawnedId, {
+          id: spawnedId,
+          parentId: agentId,
+          type,
+          name: generateBotName(type, spawnedId),
+          state: 'working',
+          toolCount: 0,
+        })
+      }
+    }
+
+    // Update agent state on tool calls
+    if (evt.event_type === 'tool_call' || evt.event_type === 'agent_spawn') {
       const agent = agents.get(agentId)
       if (agent) {
         agents.set(agentId, {
@@ -111,7 +149,7 @@ export const useSupervisorStore = create<SupervisorState>((set, get) => ({
     // Handle notification (session end)
     if (evt.event_type === 'notification') {
       for (const [id, agent] of agents) {
-        agents.set(id, { ...agent, state: 'done' })
+        agents.set(id, { ...agent, state: 'done', currentTool: undefined })
       }
     }
 

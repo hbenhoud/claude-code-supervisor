@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -10,13 +11,21 @@ import (
 )
 
 func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
+	// Read body and log for debugging
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "cannot read body", http.StatusBadRequest)
+		return
+	}
+	log.Printf("[ingest] %s", string(body))
+
 	var raw hooks.HookEvent
-	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+	if err := json.Unmarshal(body, &raw); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	if raw.SessionID == "" {
+	if raw.GetSessionID() == "" {
 		http.Error(w, "missing session ID", http.StatusBadRequest)
 		return
 	}
@@ -36,6 +45,14 @@ func (s *Server) handleIngest(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to persist event: %v", err)
 		http.Error(w, "storage error", http.StatusInternalServerError)
 		return
+	}
+
+	// Update session counters
+	if evt.EventType == "tool_call" && evt.EventSubtype == "complete" {
+		s.db.IncrementToolCount(evt.SessionID)
+	}
+	if evt.EventType == "agent_spawn" && evt.EventSubtype == "start" {
+		s.db.IncrementAgentCount(evt.SessionID)
 	}
 
 	// Broadcast to WebSocket clients
