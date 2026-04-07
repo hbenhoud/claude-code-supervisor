@@ -25,7 +25,9 @@ export function Floor() {
 
       if (isActive) {
         // Active — show, cancel any pending fade
-        setVisibleIds(prev => new Set(prev).add(agent.id))
+        if (!visibleIds.has(agent.id)) {
+          setVisibleIds(prev => new Set(prev).add(agent.id))
+        }
         const existing = timers.current.get(agent.id)
         if (existing) {
           clearTimeout(existing)
@@ -43,11 +45,6 @@ export function Floor() {
         }, FADE_DELAY)
         timers.current.set(agent.id, timer)
       }
-    }
-
-    return () => {
-      const currentTimers = timers.current
-      for (const t of currentTimers.values()) clearTimeout(t)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agents])
