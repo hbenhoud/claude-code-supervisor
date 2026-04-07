@@ -40,7 +40,10 @@ function App() {
       <TopBar />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <AgentCards onShowSessions={() => setShowSessionList(true)} />
+        <AgentCards onShowSessions={() => {
+          useSupervisorStore.getState().setActiveSession(null)
+          setShowSessionList(true)
+        }} />
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <Floor />

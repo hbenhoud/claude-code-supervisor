@@ -16,6 +16,7 @@ interface SupervisorState {
   // Events for active session
   events: SupervisorEvent[]
   addEvent: (evt: SupervisorEvent) => void
+  loadEvents: (evts: SupervisorEvent[]) => void
   clearEvents: () => void
 
   // Agents derived from events
@@ -166,6 +167,75 @@ export const useSupervisorStore = create<SupervisorState>((set, get) => ({
       events: newEvents,
       agents,
       ...(state.liveMode ? { selectedEventId: evt.id } : {}),
+    })
+  },
+  loadEvents: (evts) => {
+    const agents = new Map<string, Agent>()
+    for (const evt of evts) {
+      const agentId = evt.agent_id || 'root'
+
+      if (!agents.has('root')) {
+        agents.set('root', {
+          id: 'root',
+          type: 'root',
+          name: generateBotName('root', evt.session_id),
+          state: 'idle',
+          toolCount: 0,
+        })
+      }
+
+      if (agentId !== 'root' && !agents.has(agentId)) {
+        const description = extractAgentDescription(evt)
+        const type = inferBotType(agentId, description)
+        agents.set(agentId, {
+          id: agentId,
+          parentId: evt.parent_agent_id || 'root',
+          type,
+          name: generateBotName(type, agentId),
+          state: 'idle',
+          toolCount: 0,
+        })
+      }
+
+      if (evt.event_type === 'agent_spawn' && evt.event_subtype === 'start') {
+        const description = extractAgentDescription(evt)
+        const subAgentType = extractSubagentType(evt)
+        const type = subAgentType || inferBotType(agentId, description)
+        const spawnedId = evt.tool_use_id ? `agent-${evt.tool_use_id.slice(0, 16)}` : agentId
+        if (!agents.has(spawnedId)) {
+          agents.set(spawnedId, {
+            id: spawnedId,
+            parentId: agentId,
+            type,
+            name: generateBotName(type, spawnedId),
+            state: 'working',
+            toolCount: 0,
+          })
+        }
+      }
+
+      if (evt.event_type === 'tool_call' || evt.event_type === 'agent_spawn') {
+        const agent = agents.get(agentId)
+        if (agent) {
+          agent.state = inferBotState(evt)
+          agent.currentTool = evt.event_subtype === 'start' ? evt.tool_name : undefined
+          if (evt.event_subtype === 'complete') agent.toolCount++
+        }
+      }
+
+      if (evt.event_type === 'notification') {
+        for (const [, agent] of agents) {
+          agent.state = 'done'
+          agent.currentTool = undefined
+        }
+      }
+    }
+
+    const lastEvt = evts.length > 0 ? evts[evts.length - 1] : null
+    set({
+      events: evts,
+      agents,
+      ...(lastEvt ? { selectedEventId: lastEvt.id } : {}),
     })
   },
   clearEvents: () => set({ events: [], agents: new Map(), liveMode: true }),
