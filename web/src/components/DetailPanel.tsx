@@ -24,7 +24,7 @@ export function DetailPanel() {
     const prompt = spawnInput?.prompt as string | undefined
 
     return (
-      <div style={{ width: 280, flexShrink: 0, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
+      <div style={{ width: 420, flexShrink: 0, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
         <h3 style={{ fontSize: 14, margin: '0 0 12px', color: '#e0e0e0' }}>{selectedAgent.name}</h3>
         <Field label="Type" value={selectedAgent.type} />
         <Field label="State" value={selectedAgent.state} />
@@ -92,7 +92,7 @@ export function DetailPanel() {
   if (!selectedEvent) {
     return (
       <div style={{
-        width: 280,
+        width: 420,
         borderLeft: '1px solid #222',
         padding: 12,
         display: 'flex',
@@ -108,7 +108,7 @@ export function DetailPanel() {
   }
 
   return (
-    <div style={{ width: 280, flexShrink: 0, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
+    <div style={{ width: 420, flexShrink: 0, borderLeft: '1px solid #222', padding: 12, overflowY: 'auto', fontSize: 12 }}>
       <h3 style={{ fontSize: 14, margin: '0 0 12px', color: '#e0e0e0' }}>
         {selectedEvent.tool_name || selectedEvent.event_type}
       </h3>
@@ -157,9 +157,48 @@ function Field({ label, value, color }: { label: string; value: string; color?: 
 }
 
 function CollapsibleJson({ label, data }: { label: string; data: unknown }) {
-  const json = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
-  const truncated = json.length > 500
+  // If data is an object, render each key/value as a structured field
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const entries = Object.entries(data as Record<string, unknown>)
+    if (entries.length > 0) {
+      return (
+        <div style={{ marginTop: 12 }}>
+          <span style={{ color: '#666', fontSize: 10 }}>{label}</span>
+          <div style={{ marginTop: 4, borderLeft: '2px solid #222', paddingLeft: 8 }}>
+            {entries.map(([key, val]) => {
+              const str = typeof val === 'string' ? val : JSON.stringify(val, null, 2)
+              const isLong = str.length > 100
+              return (
+                <div key={key} style={{ marginBottom: 6 }}>
+                  <span style={{ color: '#60a5fa', fontSize: 10 }}>{key}</span>
+                  {isLong ? (
+                    <pre style={{
+                      background: '#0a0a0a',
+                      border: '1px solid #1a1a1a',
+                      borderRadius: 4,
+                      padding: 6,
+                      fontSize: 10,
+                      color: '#aaa',
+                      overflow: 'auto',
+                      maxHeight: 150,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-all',
+                      margin: '2px 0 0',
+                    }}>{str}</pre>
+                  ) : (
+                    <div style={{ color: '#ccc', fontSize: 11, fontFamily: 'monospace', wordBreak: 'break-all' }}>{str}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
+  }
 
+  // Fallback for strings/arrays/primitives
+  const json = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
   return (
     <div style={{ marginTop: 12 }}>
       <span style={{ color: '#666', fontSize: 10 }}>{label}</span>
@@ -175,9 +214,7 @@ function CollapsibleJson({ label, data }: { label: string; data: unknown }) {
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-all',
         margin: '4px 0 0',
-      }}>
-        {truncated ? json.slice(0, 500) + '\n...' : json}
-      </pre>
+      }}>{json}</pre>
     </div>
   )
 }
