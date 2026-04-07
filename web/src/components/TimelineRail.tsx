@@ -99,21 +99,27 @@ export function TimelineRail() {
     return () => observer.disconnect()
   }, [])
 
-  // Compute visible range (virtualization)
-  const { startIdx, endIdx, totalWidth } = useMemo(() => {
-    const total = events.length * NODE_STEP
-    const start = Math.max(0, Math.floor(scrollLeft / NODE_STEP) - OVERSCAN)
-    const visibleCount = Math.ceil(containerWidth / NODE_STEP) + OVERSCAN * 2
+  // Compute visible range (virtualization) — spread nodes to fill container when few events
+  const { startIdx, endIdx, totalWidth, nodeStep } = useMemo(() => {
+    const naturalWidth = events.length * NODE_STEP
+    const step = events.length > 0 && naturalWidth < containerWidth
+      ? Math.max(NODE_STEP, containerWidth / events.length)
+      : NODE_STEP
+    const total = Math.max(events.length * step, containerWidth)
+    const start = Math.max(0, Math.floor(scrollLeft / step) - OVERSCAN)
+    const visibleCount = Math.ceil(containerWidth / step) + OVERSCAN * 2
     const end = Math.min(events.length, start + visibleCount)
-    return { startIdx: start, endIdx: end, totalWidth: total }
+    return { startIdx: start, endIdx: end, totalWidth: total, nodeStep: step }
   }, [events.length, scrollLeft, containerWidth])
 
-  if (events.length === 0) return null
+  if (events.length === 0) {
+    return <div ref={scrollRef} />
+  }
 
   return (
     <div style={{
       borderTop: '1px solid #222',
-      padding: '8px 12px',
+      padding: '12px 16px',
       background: '#0d0d0d',
     }}>
       <div
@@ -132,7 +138,7 @@ export function TimelineRail() {
               evt={evt}
               isSelected={evt.id === selectedEventId}
               dimmed={selectedAgentId != null && evt.agent_id !== selectedAgentId}
-              left={(startIdx + i) * NODE_STEP}
+              left={(startIdx + i) * nodeStep}
               onSelect={selectEvent}
             />
           ))}
