@@ -98,7 +98,7 @@ export function SessionList({ onSelect }: SessionListProps) {
               {s.status === 'running' && '● '}{s.status}
             </span>
             <span style={{ color: '#888' }}>{s.tool_count} tools</span>
-            <span style={{ color: '#888' }}>{s.agent_count} bots</span>
+            <span style={{ color: '#888' }}>{s.agent_count} agents</span>
             <span style={{ color: '#666' }}>
               {new Date(s.started_at * 1000).toLocaleTimeString()}
             </span>

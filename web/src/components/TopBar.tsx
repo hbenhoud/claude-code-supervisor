@@ -158,8 +158,8 @@ export function TopBar() {
           <span style={{ color: '#e0e0e0', fontWeight: 'bold' }}>{formatDuration(elapsed)}</span>
         </Tooltip>
 
-        <Tooltip text="Number of active agents.\nRoot + sub-agents currently in the session.">
-          <span style={{ color: '#888' }}>Bots</span>
+        <Tooltip text="Total agents in this session.\nRoot + sub-agents.">
+          <span style={{ color: '#888' }}>Agents</span>
           <span style={{ color: '#e0e0e0', fontWeight: 'bold' }}>{botCount}</span>
         </Tooltip>
 

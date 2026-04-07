@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useSupervisorStore } from '../store/supervisor'
 
 export function DetailPanel() {
@@ -31,23 +32,34 @@ export function DetailPanel() {
         <Field label="Tools used" value={String(selectedAgent.toolCount)} />
         {selectedAgent.currentTool && <Field label="Current" value={selectedAgent.currentTool} />}
         <h4 style={{ fontSize: 12, margin: '12px 0 8px', color: '#888' }}>Actions</h4>
-        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-          {agentEvents.reduce<{ id: string; toolUseId: string; toolName: string; subtype: string; durationMs?: number }[]>((acc, e) => {
-            if (e.tool_use_id) {
-              const existing = acc.find(a => a.toolUseId === e.tool_use_id)
+        <ActionsScroll>
+          {(() => {
+            // Group start/complete by tool_use_id, sorted by first appearance
+            const grouped = new Map<string, { id: string; toolUseId: string; toolName: string; subtype: string; durationMs?: number; timestamp: number }>()
+            const sorted = [...agentEvents].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            for (const e of sorted) {
+              const key = e.tool_use_id || e.id
+              const existing = grouped.get(key)
               if (existing) {
-                // Update with complete info
-                existing.subtype = e.event_subtype
-                existing.id = e.id
-                if (e.duration_ms != null) existing.durationMs = e.duration_ms
+                if (e.event_subtype === 'complete') {
+                  existing.subtype = 'complete'
+                  existing.id = e.id
+                  if (e.duration_ms != null) existing.durationMs = e.duration_ms
+                }
               } else {
-                acc.push({ id: e.id, toolUseId: e.tool_use_id, toolName: e.tool_name || e.event_type, subtype: e.event_subtype, durationMs: e.duration_ms ?? undefined })
+                grouped.set(key, { id: e.id, toolUseId: key, toolName: e.tool_name || e.event_type, subtype: e.event_subtype, durationMs: e.duration_ms ?? undefined, timestamp: new Date(e.timestamp).getTime() })
               }
-            } else {
-              acc.push({ id: e.id, toolUseId: e.id, toolName: e.tool_name || e.event_type, subtype: e.event_subtype, durationMs: e.duration_ms ?? undefined })
             }
-            return acc
-          }, []).map(a => (
+            // Orphan starts: if a start has no complete but later events exist, mark as complete
+            const entries = Array.from(grouped.values())
+            const lastTimestamp = sorted.length > 0 ? new Date(sorted[sorted.length - 1].timestamp).getTime() : 0
+            for (const entry of entries) {
+              if (entry.subtype === 'start' && entry.timestamp < lastTimestamp) {
+                entry.subtype = 'complete'
+              }
+            }
+            return entries
+          })().map(a => (
             <div
               key={a.toolUseId}
               onClick={() => selectEvent(a.id)}
@@ -69,7 +81,7 @@ export function DetailPanel() {
               {a.durationMs != null && <span style={{ color: '#555' }}> ({a.durationMs}ms)</span>}
             </div>
           ))}
-        </div>
+        </ActionsScroll>
         {prompt && agentEvents.length === 0 && (
           <CollapsibleJson label="Prompt" data={prompt} />
         )}
@@ -90,7 +102,7 @@ export function DetailPanel() {
         fontSize: 12,
         fontFamily: 'monospace',
       }}>
-        Click a bot or timeline node to see details
+        Click an agent or timeline node to see details
       </div>
     )
   }
@@ -117,6 +129,20 @@ export function DetailPanel() {
       {selectedEvent.tool_output != null && (
         <CollapsibleJson label="Output" data={selectedEvent.tool_output as Record<string, unknown>} />
       )}
+    </div>
+  )
+}
+
+function ActionsScroll({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.scrollTop = ref.current.scrollHeight
+    }
+  })
+  return (
+    <div ref={ref} style={{ maxHeight: 'calc(100vh - 350px)', overflowY: 'auto' }}>
+      {children}
     </div>
   )
 }
