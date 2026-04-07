@@ -1,6 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { useSupervisorStore } from '../store/supervisor'
 
+function formatMs(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  const s = ms / 1000
+  if (s < 60) return `${s.toFixed(1)}s`
+  const m = Math.floor(s / 60)
+  const sec = Math.round(s % 60)
+  return `${m}m ${sec}s`
+}
+
 export function DetailPanel() {
   const events = useSupervisorStore(s => s.events)
   const selectedEventId = useSupervisorStore(s => s.selectedEventId)
@@ -78,7 +87,7 @@ export function DetailPanel() {
                 {a.subtype === 'complete' ? '✓' : a.toolName === 'notification' ? '●' : '▶'}
               </span>
               {a.toolName}
-              {a.durationMs != null && <span style={{ color: '#555' }}> ({a.durationMs}ms)</span>}
+              {a.durationMs != null && <span style={{ color: '#555' }}> ({formatMs(a.durationMs)})</span>}
             </div>
           ))}
         </ActionsScroll>
@@ -117,7 +126,7 @@ export function DetailPanel() {
       <Field label="Agent" value={selectedEvent.agent_id} />
       <Field label="Time" value={new Date(selectedEvent.timestamp).toLocaleTimeString()} />
       {selectedEvent.duration_ms != null && (
-        <Field label="Duration" value={`${selectedEvent.duration_ms}ms`} />
+        <Field label="Duration" value={formatMs(selectedEvent.duration_ms)} />
       )}
       {selectedEvent.error && (
         <Field label="Error" value={selectedEvent.error} color="#ef4444" />

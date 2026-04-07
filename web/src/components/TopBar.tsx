@@ -85,9 +85,12 @@ export function TopBar() {
   }
 
   const formatDuration = (s: number) => {
-    const m = Math.floor(s / 60)
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
     const sec = s % 60
-    return m > 0 ? `${m}m ${sec}s` : `${sec}s`
+    if (h > 0) return `${h}h ${m}m`
+    if (m > 0) return `${m}m ${sec}s`
+    return `${sec}s`
   }
 
   return (
