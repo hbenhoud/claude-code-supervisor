@@ -15,7 +15,7 @@ function isActive(state: BotState) {
   return state === 'working' || state === 'error'
 }
 
-export function AgentCards() {
+export function AgentCards({ onShowSessions }: { onShowSessions?: () => void }) {
   const agents = useSupervisorStore(s => s.agents)
   const selectedAgentId = useSupervisorStore(s => s.selectedAgentId)
   const selectAgent = useSupervisorStore(s => s.selectAgent)
@@ -75,6 +75,26 @@ export function AgentCards() {
             />
           ))}
         </>
+      )}
+
+      {onShowSessions && (
+        <div
+          onClick={onShowSessions}
+          style={{
+            marginTop: 'auto',
+            padding: '8px 0',
+            borderTop: '1px solid #222',
+            textAlign: 'center',
+            fontSize: 11,
+            color: '#666',
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#aaa')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#666')}
+        >
+          ← Sessions
+        </div>
       )}
     </div>
   )

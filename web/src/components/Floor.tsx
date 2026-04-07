@@ -20,20 +20,19 @@ export function Floor() {
   const subAgents = agentList.filter(a => a.id !== 'root')
 
   useEffect(() => {
-    const nextVisible = new Set<string>()
-
     for (const agent of subAgents) {
-      if (agent.state === 'working' || agent.state === 'error') {
-        // Active — show immediately, cancel any pending fade
-        nextVisible.add(agent.id)
+      const isActive = agent.state === 'working' || agent.state === 'error'
+
+      if (isActive) {
+        // Active — show, cancel any pending fade
+        setVisibleIds(prev => new Set(prev).add(agent.id))
         const existing = timers.current.get(agent.id)
         if (existing) {
           clearTimeout(existing)
           timers.current.delete(agent.id)
         }
       } else if (visibleIds.has(agent.id) && !timers.current.has(agent.id)) {
-        // Just completed — keep visible, start fade timer
-        nextVisible.add(agent.id)
+        // Just completed — start fade timer
         const timer = setTimeout(() => {
           setVisibleIds(prev => {
             const next = new Set(prev)
@@ -43,13 +42,8 @@ export function Floor() {
           timers.current.delete(agent.id)
         }, FADE_DELAY)
         timers.current.set(agent.id, timer)
-      } else if (timers.current.has(agent.id)) {
-        // Timer still running — keep visible
-        nextVisible.add(agent.id)
       }
     }
-
-    setVisibleIds(nextVisible)
 
     return () => {
       const currentTimers = timers.current

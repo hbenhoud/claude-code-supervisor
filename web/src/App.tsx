@@ -40,7 +40,7 @@ function App() {
       <TopBar />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <AgentCards />
+        <AgentCards onShowSessions={() => setShowSessionList(true)} />
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <Floor />
@@ -50,25 +50,6 @@ function App() {
         <DetailPanel />
       </div>
 
-      {/* Session switcher button */}
-      <button
-        onClick={() => setShowSessionList(true)}
-        style={{
-          position: 'fixed',
-          bottom: 12,
-          left: 12,
-          padding: '6px 12px',
-          background: '#1e1e1e',
-          border: '1px solid #333',
-          borderRadius: 6,
-          color: '#888',
-          fontSize: 11,
-          cursor: 'pointer',
-          fontFamily: 'monospace',
-        }}
-      >
-        Sessions
-      </button>
     </div>
   )
 }
